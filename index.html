@@ -589,6 +589,10 @@
       <button class="filter-btn active" id="filter-all" onclick="setFilter('all')">Tutti</button>
       <button class="filter-btn" id="filter-todo" onclick="setFilter('todo')">Da completare</button>
       <button class="filter-btn" id="filter-ready" onclick="setFilter('ready')">Pronti</button>
+      <div style="width:1px; background:var(--border); margin:4px 4px;"></div>
+      <button class="filter-btn" id="filter-post" onclick="setFilter('post')" style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#16A34A;display:inline-block;flex-shrink:0;"></span>Post</button>
+      <button class="filter-btn" id="filter-stories" onclick="setFilter('stories')" style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#7C3AED;display:inline-block;flex-shrink:0;"></span>Stories</button>
+      <button class="filter-btn" id="filter-video" onclick="setFilter('video')" style="display:flex;align-items:center;gap:5px;"><span style="width:8px;height:8px;border-radius:50%;background:#0369A1;display:inline-block;flex-shrink:0;"></span>Video</button>
     </div>
   </div>
   
@@ -1061,10 +1065,19 @@ function renderCell(date, otherMonth, today) {
   
   // Applica Filtri
   if (state.filter !== 'all') {
-    posts = posts.filter(p => {
-       const isReady = p.status === 'ready';
-       return state.filter === 'ready' ? isReady : !isReady;
-    });
+    if (state.filter === 'ready' || state.filter === 'todo') {
+      posts = posts.filter(p => {
+        const isReady = p.status === 'ready';
+        return state.filter === 'ready' ? isReady : !isReady;
+      });
+    } else if (['post', 'stories', 'video'].includes(state.filter)) {
+      // Filtro per tipo: mostra solo le card che hanno quel tipo attivo
+      posts = posts.filter(p => {
+        const parsed = parsePostData(p);
+        const d = parsed[state.filter];
+        return d.img || d.status !== 'not-ready' || d.scheduled !== 'not-scheduled' || d.title;
+      });
+    }
   }
 
   const isToday = dateKey(date) === dateKey(today);
@@ -1080,12 +1093,18 @@ function renderCell(date, otherMonth, today) {
     let activeTypes = [];
     ['post', 'stories', 'video'].forEach(type => {
       let d = parsedData[type];
-      if (d.img || d.status !== 'not-ready' || d.scheduled !== 'not-scheduled') {
+      if (d.img || d.status !== 'not-ready' || d.scheduled !== 'not-scheduled' || d.title) {
         activeTypes.push({type, data: d});
       }
     });
 
     if(activeTypes.length === 0) activeTypes.push({type: 'post', data: parsedData.post});
+
+    // Se c'è un filtro per tipo attivo, mostra solo quel tipo nella card
+    if (['post', 'stories', 'video'].includes(state.filter)) {
+      activeTypes = activeTypes.filter(item => item.type === state.filter);
+      if (activeTypes.length === 0) activeTypes.push({type: state.filter, data: parsedData[state.filter]});
+    }
 
     let rowsHtml = '';
     activeTypes.forEach(item => {
