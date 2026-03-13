@@ -767,6 +767,10 @@ async function fetchPostsIfNeeded() {
       } catch(e) {
           console.error('Errore caricamento:', e);
           showToast('Errore connessione database', 'error');
+      } finally {
+          showLoader(false);
+          renderCalendar(); // Sempre renderizza, anche in caso di errore
+          return;
       }
       showLoader(false);
   }
@@ -911,7 +915,6 @@ function parsePostData(p) {
     data.post.scheduled = p.scheduledStatus || 'not-scheduled';
   }
   return data;
-}
 }
 
 // ─── DRAG & DROP LOGIC ────────────────────────────────────
@@ -1509,7 +1512,7 @@ function closeLightbox() {
 }
 
 // ─── INIT ─────────────────────────────────────────────────
-// Sostituito il vecchio caricamento con quello ottimizzato a blocchi
+renderCalendar(); // Mostra subito il calendario (vuoto) senza aspettare Supabase
 fetchPostsIfNeeded();
 </script>
 </body>
