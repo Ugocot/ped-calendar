@@ -881,23 +881,37 @@ function parsePostData(p) {
     try {
       const parsed = JSON.parse(p.image);
       if (typeof parsed.post === 'string' || typeof parsed.stories === 'string') {
+        // Formato legacy: immagini come stringhe dirette
         if(parsed.post) data.post.img = parsed.post;
         if(parsed.stories) data.stories.img = parsed.stories;
         if(parsed.video) data.video.img = parsed.video;
         data.post.status = p.status || 'not-ready';
         data.post.scheduled = p.scheduledStatus || 'not-scheduled';
       } else {
-        data = { ...data, ...parsed };
+        // Formato nuovo: merge sicuro campo per campo per evitare bleeding tra tipi
+        if (parsed.copyPost  !== undefined) data.copyPost  = parsed.copyPost;
+        if (parsed.copyVideo !== undefined) data.copyVideo = parsed.copyVideo;
+        // Legacy copy field
+        if (parsed.copy !== undefined && !parsed.copyPost) data.copyPost = parsed.copy;
+        
+        ['post', 'stories', 'video'].forEach(type => {
+          if (parsed[type] && typeof parsed[type] === 'object') {
+            data[type] = { ...data[type], ...parsed[type] };
+          }
+        });
       }
-      if (data.video.status === 'not-recorded') data.video.status = 'not-ready';
-      if (data.video.status === 'recorded') data.video.status = 'ready';
+      // Fix valori legacy per video recorded
+      if (data.video.status === 'not-recorded') { data.video.recorded = 'not-recorded'; data.video.status = 'not-ready'; }
+      if (data.video.status === 'recorded')     { data.video.recorded = 'recorded';     data.video.status = 'ready'; }
     } catch(e) {}
   } else {
+    // Formato molto vecchio: immagine base64 diretta
     data.post.img = p.image;
     data.post.status = p.status || 'not-ready';
     data.post.scheduled = p.scheduledStatus || 'not-scheduled';
   }
   return data;
+}
 }
 
 // ─── DRAG & DROP LOGIC ────────────────────────────────────
@@ -1358,7 +1372,7 @@ function openModal(dateStr, editIndex = null) {
   currentData = parsePostData(post);
   
   // Popola i 3 titoli separati
-  document.getElementById('title-post').value    = currentData.post.title    || post?.title || '';
+  document.getElementById('title-post').value    = currentData.post.title    || '';
   document.getElementById('title-stories').value = currentData.stories.title || '';
   document.getElementById('title-video').value   = currentData.video.title   || '';
   
@@ -1399,8 +1413,9 @@ async function savePost() {
   currentData.stories.title = titleStories;
   currentData.video.title   = titleVideo;
   
-  // Il titolo principale della card è quello del post (o il primo disponibile)
-  post.title = titlePost || titleStories || titleVideo;
+  // Titolo principale della card: usa il primo titolo disponibile nell'ordine post > stories > video
+  // ma lo salviamo separatamente per non confondere i titoli per tipo
+  post.title = titlePost || titleStories || titleVideo || '—';
   
   // Salva i 2 copy separati
   currentData.copyPost  = document.getElementById('copy-post').value.trim();
